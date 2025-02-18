@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <title>Space Invaders Avanzato</title>
+  <style>
+    body {
+      background-color: black;
+      color: white;
+      text-align: center;
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 0;
+    }
+    canvas {
+      background-color: #000;
+      display: block;
+      margin: 20px auto;
+      border: 1px solid white;
+    }
+  </style>
+</head>
+<body>
+  <h1>Space Invaders Avanzato</h1>
+  <canvas id="gameCanvas" width="600" height="400"></canvas>
+  
+  <script>
+    // Recupera la canvas e il contesto di disegno
+    const canvas = document.getElementById("gameCanvas");
+    const ctx = canvas.getContext("2d");
+
+    // Definizione del giocatore
+    const player = {
+      x: canvas.width / 2 - 20,
+      y: canvas.height - 30,
+      width: 40,
+      height: 20,
+      speed: 5,
+      movingLeft: false,
+      movingRight: false
+    };
+
+    // Array per i proiettili del giocatore
+    const bullets = [];
+
+    // Definizione degli alieni in una griglia
+    const alienRows = 4;
+    const alienCols = 10;
+    const aliens = [];
+    const alienWidth = 30;
+    const alienHeight = 20;
+    const alienPadding = 10;
+    const alienOffsetTop = 30;
+    const alienOffsetLeft = 30;
+
+    for (let r = 0; r < alienRows; r++) {
+      for (let c = 0; c < alienCols; c++) {
+        aliens.push({
+          x: alienOffsetLeft + c * (alienWidth + alienPadding),
+          y: alienOffsetTop + r * (alienHeight + alienPadding),
+          width: alienWidth,
+          height: alienHeight,
+          alive: true
+        });
+      }
+    }
+
+    // Variabili per il movimento degli alieni
+    let alienDirection = 1; // 1: verso destra, -1: verso sinistra
+    let alienSpeed = 0.5;
+
+    // Funzione per disegnare tutti gli elementi di gioco
+    function drawGame() {
+      // Pulisce la canvas
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      // Disegna il giocatore
+      ctx.fillStyle = "lime";
+      ctx.fillRect(player.x, player.y, player.width, player.height);
+
+      // Disegna i proiettili
+      ctx.fillStyle = "red";
+      bullets.forEach(bullet => {
+        ctx.fillRect(bullet.x, bullet.y, bullet.width, bullet.height);
+      });
+
+      // Disegna gli alieni
+      ctx.fillStyle = "white";
+      aliens.forEach(alien => {
+        if (alien.alive) {
+          ctx.fillRect(alien.x, alien.y, alien.width, alien.height);
+        }
+      });
+    }
+
+    // Aggiorna la posizione del giocatore in base all'input
+    function updatePlayer() {
+      if (player.movingLeft && player.x > 0) {
+        player.x -= player.speed;
+      }
+      if (player.movingRight && player.x + player.width < canvas.width) {
+        player.x += player.speed;
+      }
+    }
+
+    // Aggiorna la posizione dei proiettili
+    function updateBullets() {
+      for (let i = bullets.length - 1; i >= 0; i--) {
+        bullets[i].y -= bullets[i].speed;
+        // Rimuove il proiettile se esce dallo schermo
+        if (bullets[i].y < 0) {
+          bullets.splice(i, 1);
+        }
+      }
+    }
+
+    // Aggiorna la posizione degli alieni
+    function updateAliens() {
+      let minX = canvas.width, maxX = 0;
+      aliens.forEach(alien => {
+        if (alien.alive) {
+          if (alien.x < minX) minX = alien.x;
+          if (alien.x + alien.width > maxX) maxX = alien.x + alien.width;
+        }
+      });
+      // Se un alieno tocca il bordo, inverte la direzione e li sposta in basso
+      if (minX <= 0 || maxX >= canvas.width) {
+        alienDirection *= -1;
+        aliens.forEach(alien => {
+          alien.y += alienHeight; // sposta in basso
+        });
+      }
+      // Aggiorna la posizione orizzontale degli alieni
+      aliens.forEach(alien => {
+        if (alien.alive) {
+          alien.x += alienSpeed * alienDirection;
+        }
+      });
+    }
+
+    // Controlla le collisioni tra proiettili e alieni
+    function checkBulletAlienCollision() {
+      for (let i = bullets.length - 1; i >= 0; i--) {
+        for (let j = 0; j < aliens.length; j++) {
+          const alien = aliens[j];
+          if (alien.alive && isColliding(bullets[i], alien)) {
+            alien.alive = false;
+            bullets.splice(i, 1);
+            break;
+          }
+        }
+      }
+    }
+
+    // Funzione di utilità per rilevare collisioni
+    function isColliding(a, b) {
+      return a.x < b.x + b.width &&
+             a.x + a.width > b.x &&
+             a.y < b.y + b.height &&
+             a.y + a.height > b.y;
+    }
+
+    // Gestione della sparatoria del giocatore
+    function shootBullet() {
+      bullets.push({
+        x: player.x + player.width / 2 - 2,
+        y: player.y,
+        width: 4,
+        height: 10,
+        speed: 7
+      });
+    }
+
+    // Verifica se il gioco è finito (gli alieni hanno raggiunto il giocatore)
+    function checkGameOver() {
+      for (let i = 0; i < aliens.length; i++) {
+        if (aliens[i].alive && aliens[i].y + aliens[i].height >= player.y) {
+          return true;
+        }
+      }
+      return false;
+    }
+
+    // Verifica se il giocatore ha eliminato tutti gli alieni
+    function checkWin() {
+      return aliens.every(alien => !alien.alive);
+    }
+
+    // Ciclo principale del gioco
+    function updateGame() {
+      if (checkGameOver()) {
+        drawGame();
+        ctx.fillStyle = "red";
+        ctx.font = "30px Arial";
+        ctx.fillText("Game Over", canvas.width / 2 - 70, canvas.height / 2);
+        return;
+      }
+      if (checkWin()) {
+        drawGame();
+        ctx.fillStyle = "yellow";
+        ctx.font = "30px Arial";
+        ctx.fillText("Hai Vinto!", canvas.width / 2 - 70, canvas.height / 2);
+        return;
+      }
+
+      updatePlayer();
+      updateBullets();
+      updateAliens();
+      checkBulletAlienCollision();
+      drawGame();
+      requestAnimationFrame(updateGame);
+    }
+
+    // Gestione degli eventi da tastiera
+    document.addEventListener("keydown", function(e) {
+      if (e.key === "ArrowLeft" || e.key === "a" || e.key === "A") {
+        player.movingLeft = true;
+      }
+      if (e.key === "ArrowRight" || e.key === "d" || e.key === "D") {
+        player.movingRight = true;
+      }
+      if (e.key === " " || e.key === "Spacebar") {
+        shootBullet();
+      }
+    });
+
+    document.addEventListener("keyup", function(e) {
+      if (e.key === "ArrowLeft" || e.key === "a" || e.key === "A") {
+        player.movingLeft = false;
+      }
+      if (e.key === "ArrowRight" || e.key === "d" || e.key === "D") {
+        player.movingRight = false;
+      }
+    });
+
+    // Avvia il ciclo di gioco
+    updateGame();
+  </script>
+</body>
+</html>
